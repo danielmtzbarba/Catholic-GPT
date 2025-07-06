@@ -13,8 +13,7 @@ from src.rag.prompt import prompt_template
 # Load environment variables. Assumes that project contains .env file with API keys
 load_dotenv()
 openai.api_key = os.environ["OPENAI_API_KEY"]
-
-CHROMA_PATH = "chroma"
+dataset_path = os.environ["DATASET_PATH"]
 
 
 @dataclass
@@ -39,8 +38,8 @@ class RAG(Database):
     Query class to handle the query text and create a prompt.
     """
 
-    def __init__(self, prompt_template=None):
-        super().__init__(CHROMA_PATH)
+    def __init__(self, dbdir, prompt_template=None):
+        super().__init__(dbdir)
         self._query = Query(content="")
         self._prompt_template = prompt_template
         self._prompt = None
@@ -94,13 +93,14 @@ def main():
     parser.add_argument("query_text", type=str, help="The query text.")
     args = parser.parse_args()
     query_text = args.query_text
-
-    rag = RAG(prompt_template)
+    database_path = os.path.join(dataset_path, "chroma-1")
+    rag = RAG(database_path, prompt_template)
     rag(query_text)
 
 
 def test_rag(query_text):
-    rag = RAG(prompt_template)
+    database_path = os.path.join(dataset_path, "chroma-1")
+    rag = RAG(database_path, prompt_template)
     response = rag(query_text)
 
 
