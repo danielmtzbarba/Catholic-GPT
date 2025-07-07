@@ -10,7 +10,7 @@ import os
 
 load_dotenv()
 dataset_path = os.environ["DATASET_PATH"]
-database = "chroma-1"
+database = "chroma/chroma-1"
 
 # Run the app
 if __name__ == "__main__":
