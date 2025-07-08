@@ -1,17 +1,19 @@
-# from langchain.document_loaders import DirectoryLoader
 from langchain_community.document_loaders import DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 
-# from langchain.embeddings import OpenAIEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
+
 import openai
-from dotenv import load_dotenv
 import os
+import nltk
 import shutil
 
-import nltk
+from utils import list_pdfs, load_pdf, clean_document, split_text_token, save_chunks
+
+from dotenv import load_dotenv
+
 
 # Load environment variables. Assumes that project contains .env file with API keys
 load_dotenv()
@@ -19,52 +21,56 @@ openai.api_key = os.environ["OPENAI_API_KEY"]
 dataset_path = os.environ["DATASET_PATH"]
 
 
-def generate_data_store(document_path, chromadir):
-    documents = load_documents(document_path)
-    chunks = split_text(documents)
-    save_to_chroma(chromadir, chunks)
+def generate_data_store(docdir, sourcedir, chromadir):
+    print("📚 Archivos PDF encontrados:")
+    pdfs = list_pdfs(docdir)
+    for i, name in enumerate(pdfs):
+        print(f"[{i}] {name}")
+
+    all_chunks = []
+
+    for idx, docname in enumerate(pdfs):
+        print(f"\n📄 Cargando: {pdfs[idx]}")
+        selected = os.path.join(docdir, pdfs[idx])
+        document = load_pdf(selected)
+        text = clean_document(document)
+        chunks = split_text_token(text, pdfs[idx][:-4])
+        all_chunks.extend(chunks)
+
+    save_chunks(all_chunks, sourcedir)
+    save_to_chroma(chromadir, all_chunks)
 
 
-def load_documents(document_path):
-    loader = DirectoryLoader(document_path, glob="*.md")
-    documents = loader.load()
-    return documents
-
-
-def split_text(documents: list[Document]):
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100,
-        length_function=len,
-        add_start_index=True,
-    )
-    chunks = text_splitter.split_documents(documents)
-    print(f"Split {len(documents)} documents into {len(chunks)} chunks.")
-
-    document = chunks[10]
-    print(document.page_content)
-    print(document.metadata)
-
-    return chunks
-
-
-def save_to_chroma(chroma_path, chunks: list[Document]):
+def save_to_chroma(chroma_path, chunks):
     # Clear out the database first.
     if os.path.exists(chroma_path):
         shutil.rmtree(chroma_path)
 
-    # Create a new DB from the documents.
-    db = Chroma.from_documents(
-        chunks, OpenAIEmbeddings(), persist_directory=chroma_path
-    )
-    db.persist()
-    print(f"Saved {len(chunks)} chunks to {chroma_path}.")
+    #
+    embeddings = OpenAIEmbeddings()
+    vectorstore = Chroma(persist_directory=chroma_path, embedding_function=embeddings)
+
+    documents = [
+        Document(page_content=chunk["content"], metadata={"chunk_id": chunk["id"]})
+        for chunk in chunks
+    ]
+
+    # Split in safe batches
+    batch_size = 100
+    for i in range(0, len(documents), batch_size):
+        batch = documents[i : i + batch_size]
+        vectorstore.add_documents(batch)
+
+
+datadir_id = 2
+
+document_path = os.path.join(dataset_path, f"documents/documents-{datadir_id}")
+source_path = os.path.join(dataset_path, f"sources/sources-{datadir_id}")
+chroma_path = os.path.join(dataset_path, f"chroma/chroma-{datadir_id}")
 
 
 def main():
-    datadir = os.path.join(dataset_path, "documents-1")
-    chromadir = os.path.joint(dataset_path, "chroma-1")
-    generate_data_store(datadir, chromadir)
+    generate_data_store(document_path, source_path, chroma_path)
 
 
 if __name__ == "__main__":

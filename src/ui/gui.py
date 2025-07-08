@@ -160,4 +160,8 @@ class ChatBotUI:
     def chatbot_callback(self, user_input):
         response, sources = self.model(user_input)
         # Replace with your actual model call
-        return f"{response}\n\nSources: {', '.join(sources)}"
+        try:
+            out = f"{response}\n\nFuentes: {'\n'.join(sources)}"
+        except Exception as e:
+            out = f"{response}\n\nFuentes: {'No se encontraron fuentes.'}"
+        return out

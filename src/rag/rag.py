@@ -63,7 +63,7 @@ class RAG(Database):
         model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         response_metadata = model.invoke(prompt)
         response = response_metadata.content
-        sources = [doc.metadata.get("source", None) for doc, _score in results]
+        sources = [doc.metadata.get("chunk_id", None) for doc, _score in results]
         return response, sources
 
     def _print_response(self, response, sources):
